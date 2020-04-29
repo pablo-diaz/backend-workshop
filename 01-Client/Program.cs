@@ -9,13 +9,16 @@ namespace _01_Client
     {
         public static void Main(string[] args)
         {
-            bool areThereCommandArguments = args.Length == 2;
+            bool areThereCommandArguments = args.Length == 3;
             var serverIP = areThereCommandArguments ? args[0] : "169.254.60.173";
             var serverPort = areThereCommandArguments ? Convert.ToInt32(args[1]) : 12345;
+            var messageToSend = areThereCommandArguments ? args[2] : "Hola Mundo nuevamente desde el cliente";
 
             using (var socket = ConnectToServer(serverIP, serverPort))
             {
-                SendMessagesToServer(socket);
+                SendMessagesToServer(socket, messageToSend);
+                var messageFromServer = ReceiveMessageFromServer(socket);
+                Console.WriteLine($"Mensaje recibido del server: {messageFromServer}");
             }
         }
 
@@ -31,16 +34,23 @@ namespace _01_Client
             return socket;
         }
 
-        private static void SendMessagesToServer(Socket socket)
+        private static void SendMessagesToServer(Socket socket, string messageToSend)
         {
-            var message = "Hola Mundo desde el Cliente";
-            SendMessageToServer(socket, message);
+            SendMessageToServer(socket, messageToSend);
         }
 
         private static void SendMessageToServer(Socket socket, string message)
         {
             var bytesToSent = Encoding.ASCII.GetBytes(message);
             socket.Send(bytesToSent, bytesToSent.Length, SocketFlags.None);
+        }
+
+        private static string ReceiveMessageFromServer(Socket socket)
+        {
+            int messageBufferSizeInBytes = 1024;
+            var receiveBuffer = new byte[messageBufferSizeInBytes];
+            var receivedByteCount = socket.Receive(receiveBuffer, SocketFlags.None);
+            return Encoding.UTF8.GetString(receiveBuffer, 0, receivedByteCount);
         }
     }
 }

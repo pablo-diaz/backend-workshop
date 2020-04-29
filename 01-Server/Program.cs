@@ -56,7 +56,8 @@ namespace _01_Server
                 using (var clientSocket = serverSocket.Accept())
                 {
                     var messageFromClient = GetMessageFromClient(clientSocket);
-                    ProcessMessageFromClient(messageFromClient);
+                    var responseMessage = ProcessMessageFromClient(messageFromClient);
+                    SendMessageToClient(clientSocket, responseMessage);
                 }
             }
         }
@@ -65,20 +66,29 @@ namespace _01_Server
         {
             int messageBufferSizeInBytes = 1024;
             var receiveBuffer = new byte[messageBufferSizeInBytes];
-
-            int receivedByteCount;
-            var messageReceived = "";
-            do
-            {
-                receivedByteCount = clientSocket.Receive(receiveBuffer, SocketFlags.None);
-                messageReceived += Encoding.UTF8.GetString(receiveBuffer, 0, receivedByteCount);
-            } while (receivedByteCount > 0);
-            return messageReceived;
+            var receivedByteCount = clientSocket.Receive(receiveBuffer, messageBufferSizeInBytes, SocketFlags.None);
+            return Encoding.UTF8.GetString(receiveBuffer, 0, receivedByteCount);
         }
 
-        private static void ProcessMessageFromClient(string message)
+        private static string ProcessMessageFromClient(string message)
         {
-            Console.WriteLine($"Este es el mensaje recibido: '{message}'");
+            const string notCompliantWithYWPError = "No cumple con el protocolo YWP";
+            if (string.IsNullOrEmpty(message))
+                return notCompliantWithYWPError;
+
+            if (message.StartsWith("GET"))
+                return "Se va a hacer un GET";
+
+            if (message.StartsWith("LOG"))
+                return "Se va a hacer un LOG";
+
+            return notCompliantWithYWPError;
+        }
+
+        private static void SendMessageToClient(Socket socket, string message)
+        {
+            var bytesToSent = Encoding.ASCII.GetBytes(message);
+            socket.Send(bytesToSent, bytesToSent.Length, SocketFlags.None);
         }
     }
 }
