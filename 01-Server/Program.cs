@@ -4,30 +4,18 @@ using System.Net;
 using System.Text;
 using System.Linq;
 using System.Net.Sockets;
+using System.Globalization;
 
 using CsvHelper;
-using System.Globalization;
-using CsvHelper.Configuration.Attributes;
+using System.Collections.Generic;
 
 namespace _01_Server
 {
     sealed class LogEntry
     {
-        [Name("Machine")]
-        public string Machine { get; }
-
-        [Name("Data")]
-        public string Data { get; }
-
-        [Name("When")]
-        public DateTime When { get;  }
-
-        private LogEntry(string machine, string data, DateTime when)
-        {
-            this.Machine = machine;
-            this.Data = data;
-            this.When = when;
-        }
+        public string Machine { get; set; }
+        public string Data { get; set; }
+        public DateTime When { get; set; }
 
         public static LogEntry Parse(string message)
         {
@@ -49,12 +37,21 @@ namespace _01_Server
 
             var data = messageParts[2].Substring(6);
 
-            return new LogEntry(machine, data, DateTime.UtcNow);
+            return new LogEntry() { 
+                Machine = machine,
+                Data = data,
+                When = DateTime.UtcNow
+            };
         }
+
+        public override string ToString() =>
+            $"[{string.Format("{0:yyyy-MM-dd HH:mm:ss}", When)}] Machine: {Machine} - Data: {Data}";
     }
 
     public class Program
     {
+        private const string dbFilePath = @"C:\temp\YPDDB.csv";
+
         public static void Main(string[] args)
         {
             var portToListenFrom = 12345;
@@ -145,13 +142,17 @@ namespace _01_Server
 
         private static string ProcessLog(string message)
         {
-            const string dbFilePath = @"C:\temp\YPDDB.csv";
             try
             {
                 var log = LogEntry.Parse(message);
-                using (var writer = new StreamWriter(dbFilePath))
+
+                bool doesFileExist = File.Exists(dbFilePath);
+                using (var writer = new StreamWriter(dbFilePath, true, Encoding.Default))
                 using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
                 {
+                    if(!doesFileExist)
+                        csv.WriteHeader<LogEntry>();
+                    csv.NextRecord();
                     csv.WriteRecord(log);
                 }
                 return null;
@@ -164,8 +165,33 @@ namespace _01_Server
 
         private static string ProcessGet(string message)
         {
-            // TODO: Complete
-            return "Se va a hacer un GET";
+            var machineRequested = GetMachineInRequest(message);
+            var existingRecords = new List<string>();
+            using (var reader = new StreamReader(dbFilePath, Encoding.Default))
+            using (var csv = new CsvReader(reader, CultureInfo.InvariantCulture))
+            {
+                existingRecords = csv.GetRecords<LogEntry>()
+                    .Where(r => string.IsNullOrEmpty(machineRequested) || r.Machine == machineRequested)
+                    .Select(r => r.ToString())
+                    .ToList();
+            }
+
+            var result = "";
+            existingRecords.ForEach(r => result += $"{r}\n");
+            return result;
+        }
+
+        private static string GetMachineInRequest(string request)
+        {
+            var requestParts = request.Split('\n');
+            if(requestParts.Length == 2 && requestParts[1].Trim().ToUpper().StartsWith("FILTERED:"))
+            {
+                var filteredParts = requestParts[1].Split(':');
+                if (filteredParts.Length == 2)
+                    return filteredParts[1].ToUpper().Trim();
+                return null;
+            }
+            return null;
         }
     }
 }
