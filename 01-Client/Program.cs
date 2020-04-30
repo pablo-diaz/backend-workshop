@@ -12,7 +12,7 @@ namespace _01_Client
             bool areThereCommandArguments = args.Length == 3;
             var serverIP = areThereCommandArguments ? args[0] : "169.254.60.173";
             var serverPort = areThereCommandArguments ? Convert.ToInt32(args[1]) : 12345;
-            var messageToSend = areThereCommandArguments ? args[2] : "Hola Mundo nuevamente desde el cliente";
+            var messageToSend = areThereCommandArguments ? args[2] : "LOG\nMACHINE: M001-A3\nDATA: { Temperatura: 15, Humedad: 10, ProbabilidadLluvia: 30 }";
 
             using (var socket = ConnectToServer(serverIP, serverPort))
             {

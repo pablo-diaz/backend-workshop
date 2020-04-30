@@ -1,11 +1,58 @@
 ﻿using System;
-using System.Linq;
+using System.IO;
 using System.Net;
-using System.Net.Sockets;
 using System.Text;
+using System.Linq;
+using System.Net.Sockets;
+
+using CsvHelper;
+using System.Globalization;
+using CsvHelper.Configuration.Attributes;
 
 namespace _01_Server
 {
+    sealed class LogEntry
+    {
+        [Name("Machine")]
+        public string Machine { get; }
+
+        [Name("Data")]
+        public string Data { get; }
+
+        [Name("When")]
+        public DateTime When { get;  }
+
+        private LogEntry(string machine, string data, DateTime when)
+        {
+            this.Machine = machine;
+            this.Data = data;
+            this.When = when;
+        }
+
+        public static LogEntry Parse(string message)
+        {
+            var messageParts = message.Split('\n');
+            if (messageParts.Length != 3)
+                throw new ApplicationException("Invalid message format");
+
+            if(!messageParts[1].ToUpper().Trim().StartsWith("MACHINE:"))
+                throw new ApplicationException("Invalid message format");
+
+            var machineParts = messageParts[1].Split(':');
+            if(machineParts.Length != 2)
+                throw new ApplicationException("Invalid message format");
+
+            var machine = machineParts[1].Trim().ToUpper();
+
+            if (!messageParts[2].ToUpper().Trim().StartsWith("DATA:"))
+                throw new ApplicationException("Invalid message format");
+
+            var data = messageParts[2].Substring(6);
+
+            return new LogEntry(machine, data, DateTime.UtcNow);
+        }
+    }
+
     public class Program
     {
         public static void Main(string[] args)
@@ -77,10 +124,15 @@ namespace _01_Server
                 return notCompliantWithYWPError;
 
             if (message.StartsWith("GET"))
-                return "Se va a hacer un GET";
+                return ProcessGet(message);
 
             if (message.StartsWith("LOG"))
-                return "Se va a hacer un LOG";
+            {
+                var error = ProcessLog(message);
+                if (!string.IsNullOrEmpty(error))
+                    return error;
+                return "Log entry saved";
+            }
 
             return notCompliantWithYWPError;
         }
@@ -89,6 +141,31 @@ namespace _01_Server
         {
             var bytesToSent = Encoding.ASCII.GetBytes(message);
             socket.Send(bytesToSent, bytesToSent.Length, SocketFlags.None);
+        }
+
+        private static string ProcessLog(string message)
+        {
+            const string dbFilePath = @"C:\temp\YPDDB.csv";
+            try
+            {
+                var log = LogEntry.Parse(message);
+                using (var writer = new StreamWriter(dbFilePath))
+                using (var csv = new CsvWriter(writer, CultureInfo.InvariantCulture))
+                {
+                    csv.WriteRecord(log);
+                }
+                return null;
+            }
+            catch (ApplicationException ex)
+            {
+                return ex.Message;
+            }
+        }
+
+        private static string ProcessGet(string message)
+        {
+            // TODO: Complete
+            return "Se va a hacer un GET";
         }
     }
 }

@@ -6,4 +6,8 @@
     <RootNamespace>_01_Server</RootNamespace>
   </PropertyGroup>
 
+  <ItemGroup>
+    <PackageReference Include="CsvHelper" Version="15.0.5" />
+  </ItemGroup>
+
 </Project>
